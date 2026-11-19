@@ -158,6 +158,36 @@ async def cancel(callback: CallbackQuery):
     if not admin(callback.from_user.id):
         await callback.answer("Нет доступа")
         return
+    # Публикация во ВКонтакте
+    try:
+        vk_token = os.getenv("VK_TOKEN", "").strip()
+        vk_group_id = os.getenv("VK_GROUP_ID", "").strip()
+        vk_version = os.getenv("VK_API_VERSION", "5.199")
+
+        vk_text = callback.message.text or callback.message.caption or ""
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://api.vk.com/method/wall.post",
+                data={
+                    "access_token": vk_token,
+                    "v": vk_version,
+                    "owner_id": f"-{vk_group_id}",
+                    "from_group": 1,
+                    "message": vk_text
+                }
+            ) as response:
+                result = await response.json()
+
+                if "error" in result:
+                    raise Exception(result["error"])
+
+                sent += 1
+                logging.info("Публикация ВКонтакте успешна")
+
+    except Exception:
+        failed += 1
+        logging.exception("Ошибка публикации ВКонтакте")
 
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.answer("Отменено")
